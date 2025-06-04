@@ -1,0 +1,62 @@
+# docker-compose.yml
+# └── (no "version:") ── Compose v2+ reads this automatically
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: coaching-postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: StrongP@ssw0rd       # no password for superuser "postgres"
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+
+  backend:
+    image: openjdk:17-jdk-slim
+    container_name: coaching-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - ~/.gradle:/root/.gradle
+    command: >
+      sh -c "
+        ./gradlew clean bootJar &&
+        java -jar build/libs/backend-0.0.1-SNAPSHOT.jar
+      "
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tutoring_db
+      SPRING_DATASOURCE_USERNAME: tutor_user
+      SPRING_DATASOURCE_PASSWORD: StrongP@ssw0rd
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.PostgreSQLDialect
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: node:18-alpine
+    container_name: coaching-frontend
+    depends_on:
+      backend:
+        condition: service_started
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm start"
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:8080/
+
+volumes:
+  postgres_data:

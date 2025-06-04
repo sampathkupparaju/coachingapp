@@ -1,0 +1,43 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.ItSolutions'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// Spring Data JPA (for @Entity, repositories, Hibernate, etc.)
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// Spring Web (for @RestController, endpoints)
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// Spring Security (for Authentication, filters, etc.)
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	// Spring Validation (for @Valid, etc.)
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	// PostgreSQL driver
+	runtimeOnly 'org.postgresql:postgresql'
+	// JJWT (JSON Web Tokens)
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5' // for Jackson serializers
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
