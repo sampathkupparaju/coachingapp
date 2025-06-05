@@ -1,144 +1,183 @@
 // frontend/src/components/Login.js
-
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { loginUser } from '../api/problems'; // Import the login API function
+import PropTypes from 'prop-types';
 
-const Login = () => {
-  const [email, setEmail] = useState('alice@example.com');
-  const [password, setPassword] = useState('password1');
+const Login = ({ onLoginSuccess }) => {
+  const [email, setEmail] = useState('alice@example.com'); // Default for convenience during development
+  const [password, setPassword] = useState('password1'); // Default for convenience
   const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation(); // To get 'from' state for redirection
 
-  // Base URL for our backend API (strip any trailing slash)
-  const baseUrl = process.env.REACT_APP_API_URL.replace(/\/$/, '');
-
-  // If a token already exists in localStorage, redirect immediately to /problems
+  // If a token already exists, App.js should ideally handle redirection.
+  // This is a secondary check.
   useEffect(() => {
-    const token = localStorage.getItem('jwt-token');
-    if (token) {
-      console.log('Token already in localStorage—redirecting to /problems');
-      navigate('/problems', { replace: true });
+    if (localStorage.getItem('jwt-token')) {
+      console.log('Login.js: Token exists, navigating to /problems (or intended path).');
+      const from = location.state?.from?.pathname || "/problems";
+      navigate(from, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setIsLoading(true);
 
     try {
-      // 1) Send POST /api/auth/login
-      const resp = await axios.post(
-        `${baseUrl}/api/auth/login`,
-        { email, password },
-        {
-          headers: { 'Content-Type': 'application/json' },
+      const response = await loginUser(email, password);
+
+      if (response.data && response.data.token && response.data.userId) {
+        const { token, userId } = response.data;
+
+        localStorage.setItem('jwt-token', token);
+        localStorage.setItem('user-id', String(userId));
+        // Store the email used for login, so App.js can retrieve it
+        localStorage.setItem('user-email', email);
+
+        console.log(`Login successful. Token, userId, and email stored.`);
+
+        if (onLoginSuccess) {
+          onLoginSuccess(); // Notify App.js about successful login
         }
-      );
+        // App.js's useEffect watching auth state should now handle navigation
+        // But we can also navigate from here as a fallback or primary action
+        const from = location.state?.from?.pathname || "/problems";
+        navigate(from, { replace: true });
 
-      // 2) Log the raw response data for debugging
-      console.log('Login response data:', resp.data);
-
-      // 3) Extract token and userId
-      const token = resp.data.token;
-      const userId = resp.data.userId;
-
-      if (!token || !userId) {
-        throw new Error(
-          'Login succeeded but response is missing token or userId'
-        );
+      } else {
+        throw new Error('Login response missing token or userId.');
       }
-
-      // 4) Store both under the exact keys ProblemList expects
-      localStorage.setItem('jwt-token', token);
-      localStorage.setItem('user-id', String(userId));
-
-      console.log(
-        `Wrote to localStorage → jwt-token=${token.slice(0, 10)}… user-id=${userId}`
-      );
-
-      // 5) Redirect to /problems, replacing /login so Back won’t return here
-      navigate('/problems', { replace: true });
     } catch (err) {
-      console.error('Login error:', err);
-      setErrorMsg('Invalid email or password. Please try again.');
+      console.error('Login API error:', err.response || err.message || err);
+      let displayError = 'Login failed. Please check your credentials or network connection.';
+      if (err.response && err.response.data) {
+        displayError = typeof err.response.data === 'string'
+          ? err.response.data
+          : (err.response.data.message || displayError);
+      }
+      setErrorMsg(displayError);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div
       style={{
-        maxWidth: '400px',
-        margin: '100px auto',
-        padding: '20px',
-        border: '1px solid #ddd',
-        borderRadius: '4px',
-        backgroundColor: '#fff',
+        maxWidth: '420px',
+        margin: '80px auto',
+        padding: '35px', // Increased padding
+        border: '1px solid #e0e0e0', // Lighter border
+        borderRadius: '10px', // More rounded
+        backgroundColor: '#ffffff',
+        boxShadow: '0 5px 15px rgba(0,0,0,0.07)' // Softer shadow
       }}
     >
-      <h2 style={{ marginBottom: '16px', textAlign: 'center' }}>Login</h2>
+      <h2 style={{
+        marginBottom: '30px', // More space
+        textAlign: 'center',
+        color: '#333', // Darker heading
+        fontSize: '1.8rem', // Larger font
+        fontWeight: '600'
+      }}>
+        User Login
+      </h2>
       {errorMsg && (
-        <div style={{ marginBottom: '16px', color: 'red' }}>{errorMsg}</div>
+        <div style={{
+          marginBottom: '20px',
+          color: '#721c24', // Darker red for text
+          backgroundColor: '#f8d7da',
+          padding: '12px 18px', // More padding
+          borderRadius: '5px',
+          border: '1px solid #f5c6cb',
+          fontSize: '0.95rem'
+        }}>
+          {errorMsg}
+        </div>
       )}
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '12px' }}>
+        <div style={{ marginBottom: '22px' }}>
           <label
             htmlFor="email"
-            style={{ display: 'block', marginBottom: '4px' }}
+            style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#495057', fontSize: '0.95rem' }}
           >
-            Email
+            Email Address
           </label>
           <input
             id="email"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={isLoading}
             style={{
               width: '100%',
-              padding: '8px',
+              padding: '12px 15px',
               boxSizing: 'border-box',
+              border: `1px solid ${errorMsg && !email ? '#dc3545' : '#ced4da'}`, // Highlight if error and empty
+              borderRadius: '5px',
+              fontSize: '1rem',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
             }}
           />
         </div>
-        <div style={{ marginBottom: '16px' }}>
+        <div style={{ marginBottom: '30px' }}>
           <label
             htmlFor="password"
-            style={{ display: 'block', marginBottom: '4px' }}
+            style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#495057', fontSize: '0.95rem' }}
           >
             Password
           </label>
           <input
             id="password"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={isLoading}
             style={{
               width: '100%',
-              padding: '8px',
+              padding: '12px 15px',
               boxSizing: 'border-box',
+              border: `1px solid ${errorMsg && !password ? '#dc3545' : '#ced4da'}`,
+              borderRadius: '5px',
+              fontSize: '1rem',
+              transition: 'border-color 0.2s ease, box-shadow 0.2s ease'
             }}
           />
         </div>
         <button
           type="submit"
+          disabled={isLoading}
           style={{
             width: '100%',
-            padding: '10px',
-            backgroundColor: '#0070f3',
-            color: '#fff',
+            padding: '14px 15px', // Taller button
+            backgroundColor: isLoading ? '#6c757d' : '#007bff',
+            color: '#ffffff',
             border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '16px',
+            borderRadius: '5px',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            fontSize: '1.05rem', // Slightly larger font
+            fontWeight: '500',
+            transition: 'background-color 0.2s ease',
+            letterSpacing: '0.5px' // Added letter spacing
           }}
         >
-          Log In
+          {isLoading ? 'Logging In...' : 'Log In'}
         </button>
       </form>
     </div>
   );
+};
+
+Login.propTypes = {
+  onLoginSuccess: PropTypes.func.isRequired, // Make it required if App.js relies on it
 };
 
 export default Login;
