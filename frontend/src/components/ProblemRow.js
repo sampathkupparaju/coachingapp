@@ -22,26 +22,44 @@ const ProblemRow = ({
     leetcodeUrl,
     neetCodeUrl,
     difficulty,
+
+    // NOTE: we still read `isSolved`/`isStarred` from props, since your parent
+    // is passing those names down. If your GET /api/problems actually sends
+    // JSON keys "solved" and "starred", then `problem.isSolved` here will
+    // already be undefined and you'll need to rename this destructuring to
+    // `const { solved: initialSolved, starred: initialStarred } = problem;`
+    // and change your PropTypes accordingly. But in your original code you
+    // said “GET all problems now returns ... isSolved, isStarred”, so we’ll
+    // assume the parent is indeed passing `problem.isSolved` & `problem.isStarred`.
     isSolved: initialSolved,
     isStarred: initialStarred,
   } = problem;
 
+  // Local copies of “solved” and “starred” for immediate UI feedback
   const [isSolved, setIsSolved] = useState(initialSolved);
   const [isStarred, setIsStarred] = useState(initialStarred);
-  const [localNote, setLocalNote] = useState(note);
+  const [localNote, setLocalNote] = useState(note || '');
 
+  // Whenever the parent re-sends new props, overwrite local state:
   useEffect(() => {
     setIsSolved(initialSolved);
     setIsStarred(initialStarred);
   }, [initialSolved, initialStarred]);
 
   useEffect(() => {
-    setLocalNote(note);
+    setLocalNote(note || '');
   }, [note]);
 
+  // Build base URL and read JWT token
   const baseUrl = process.env.REACT_APP_API_URL.replace(/\/$/, '');
   const token = localStorage.getItem('jwt-token');
 
+  /**
+   * 1) Toggle “solved” on the backend.
+   *    PUT /api/problems/{id}/solve
+   *    Then read resp.data.solved / resp.data.starred (not resp.data.isSolved),
+   *    update local state, and bubble it up via onToggle(...)
+   */
   const handleToggleSolved = async () => {
     try {
       const resp = await axios.put(
@@ -51,13 +69,25 @@ const ProblemRow = ({
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setIsSolved(resp.data.isSolved);
-      onToggle(id, resp.data.isSolved, resp.data.isStarred);
+
+      // IMPORTANT: use resp.data.solved and resp.data.starred
+      const updatedSolved = resp.data.solved;
+      const updatedStarred = resp.data.starred;
+
+      setIsSolved(updatedSolved);
+      // Tell the parent: problemId, newSolved, newStarred
+      onToggle(id, updatedSolved, updatedStarred);
     } catch (err) {
       console.error('Error toggling solved:', err);
     }
   };
 
+  /**
+   * 2) Toggle “starred” on the backend.
+   *    PUT /api/problems/{id}/star
+   *    Then read resp.data.starred / resp.data.solved (not resp.data.isStarred),
+   *    update local state, and bubble it up via onToggle(...)
+   */
   const handleToggleStar = async () => {
     try {
       const resp = await axios.put(
@@ -67,22 +97,30 @@ const ProblemRow = ({
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setIsStarred(resp.data.isStarred);
-      onToggle(id, resp.data.isSolved, resp.data.isStarred);
+
+      // IMPORTANT: use resp.data.starred and resp.data.solved
+      const updatedStarred = resp.data.starred;
+      const updatedSolved = resp.data.solved;
+
+      setIsStarred(updatedStarred);
+      onToggle(id, updatedSolved, updatedStarred);
     } catch (err) {
       console.error('Error toggling starred:', err);
     }
   };
 
+  /**
+   * 3) Whenever the <textarea> loses focus, if the note changed, inform parent via onNoteChange(...)
+   */
   const handleNoteBlur = () => {
-    if (localNote !== note) {
+    if (localNote !== (note || '')) {
       onNoteChange(id, localNote);
     }
   };
 
+  // Display “Easy” / “Medium” / “Hard” from uppercase difficulty
   const displayDifficulty =
     difficulty.charAt(0) + difficulty.slice(1).toLowerCase();
-
   const difficultyColor =
     difficulty === 'EASY'
       ? 'green'
@@ -100,73 +138,112 @@ const ProblemRow = ({
         borderBottom: '1px solid #eee',
       }}
     >
-      <div
-        style={{ textAlign: 'center', cursor: 'pointer' }}
+      {/* Solved checkbox icon as a button */}
+      <button
         onClick={handleToggleSolved}
         title={isSolved ? 'Mark as unsolved' : 'Mark as solved'}
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+          margin: 0,
+          outline: 'none',
+          color: isSolved ? 'green' : '#bbb',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        onMouseDown={(e) => e.preventDefault()} // prevent focus outline
       >
-        {isSolved ? (
-          <FaCheckCircle color='green' />
-        ) : (
-          <FaRegCircle color='#bbb' />
-        )}
-      </div>
+        {isSolved ? <FaCheckCircle size={20} /> : <FaRegCircle size={20} />}
+      </button>
 
-      <div
-        style={{ textAlign: 'center', cursor: 'pointer' }}
+      {/* Star icon as a button */}
+      <button
         onClick={handleToggleStar}
         title={isStarred ? 'Unstar this problem' : 'Star this problem'}
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+          margin: 0,
+          outline: 'none',
+          color: isStarred ? 'gold' : '#bbb',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+        onMouseDown={(e) => e.preventDefault()}
       >
-        {isStarred ? <FaStar color='gold' /> : <FaRegStar color='#bbb' />}
-      </div>
+        {isStarred ? <FaStar size={18} /> : <FaRegStar size={18} />}
+      </button>
 
+      {/* Problem title + LeetCode link */}
       <div style={{ margin: '0 8px' }}>
         <a
           href={leetcodeUrl}
-          target='_blank'
-          rel='noopener noreferrer'
+          target="_blank"
+          rel="noopener noreferrer"
           style={{
             color: '#0070f3',
             textDecoration: 'none',
             fontWeight: '500',
+            wordBreak: 'break-word',
           }}
         >
           {title}
         </a>
       </div>
 
+      {/* Difficulty label */}
       <div
         style={{
           textAlign: 'center',
           color: difficultyColor,
           fontWeight: '500',
+          textTransform: 'capitalize',
         }}
       >
         {displayDifficulty}
       </div>
 
+      {/* NeetCode video link */}
       <div style={{ textAlign: 'center' }}>
         <a
           href={neetCodeUrl}
-          target='_blank'
-          rel='noopener noreferrer'
-          title='Watch solution video'
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Watch solution video"
           style={{ fontSize: '18px', color: '#0070f3' }}
         >
           🎥
         </a>
       </div>
 
+      {/* Notes textarea */}
       <div>
         <textarea
-          style={{ width: '100%', minHeight: 40 }}
+          style={{
+            width: '100%',
+            minHeight: 40,
+            fontFamily: 'inherit',
+            fontSize: '14px',
+            padding: '6px',
+            borderRadius: '4px',
+            border: '1px solid #ccc',
+            boxSizing: 'border-box',
+          }}
           value={localNote}
           onChange={(e) => setLocalNote(e.target.value)}
           onBlur={handleNoteBlur}
-          placeholder='Your notes…'
+          placeholder="Your notes…"
         />
         {savingNote && (
-          <div style={{ fontSize: 12, color: '#777' }}>Saving…</div>
+          <div style={{ fontSize: 12, color: '#777', marginTop: '4px' }}>
+            Saving…
+          </div>
         )}
       </div>
     </div>
@@ -182,6 +259,8 @@ ProblemRow.propTypes = {
     difficulty: PropTypes.oneOf(['EASY', 'MEDIUM', 'HARD']).isRequired,
     isSolved: PropTypes.bool.isRequired,
     isStarred: PropTypes.bool.isRequired,
+    // if your Problem object has a `topic` field, add it here:
+    topic: PropTypes.string,
   }).isRequired,
   note: PropTypes.string,
   savingNote: PropTypes.bool.isRequired,

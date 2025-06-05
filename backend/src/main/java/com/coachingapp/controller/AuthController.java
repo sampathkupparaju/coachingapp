@@ -5,7 +5,7 @@ import com.coachingapp.model.User;
 import com.coachingapp.payload.LoginRequest;
 import com.coachingapp.payload.LoginResponse;
 import com.coachingapp.repository.UserRepository;
-import com.coachingapp.security.JwtUtil;
+import com.coachingapp.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.*;

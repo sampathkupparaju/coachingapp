@@ -10,13 +10,33 @@ import com.coachingapp.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestMethod;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-import java.util.*;
 import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "true")
+@CrossOrigin(
+        origins = "http://localhost:3000",
+        allowCredentials = "true",
+        // We must explicitly allow PUT (and any other HTTP verbs you need):
+        methods = {
+                RequestMethod.GET,
+                RequestMethod.POST,
+                RequestMethod.PUT,
+                RequestMethod.DELETE,
+                RequestMethod.OPTIONS
+        },
+        // Tell Spring to accept these headers from the browser’s preflight:
+        allowedHeaders = {
+                "Authorization",
+                "Content-Type"
+        }
+)
 public class ProblemNoteController {
 
     @Autowired
