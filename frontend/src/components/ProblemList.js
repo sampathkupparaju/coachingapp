@@ -39,9 +39,17 @@ const ProblemList = () => {
         const problemsResp = await axios.get(`${baseUrl}/api/problems`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const allProblems = problemsResp.data;
 
-        // Group them by topic:
+        // problemsResp.data is an array of objects like:
+        // { id, title, difficulty, solved, starred, topic, … }
+        // We need to add `isSolved` and `isStarred` so ProblemRow will pick it up:
+        const allProblems = problemsResp.data.map((p) => ({
+          ...p,
+          isSolved: p.solved,
+          isStarred: p.starred,
+        }));
+
+        // Group them by topic (unchanged):
         const byTopic = {};
         allProblems.forEach((p) => {
           if (!byTopic[p.topic]) byTopic[p.topic] = [];
@@ -69,8 +77,7 @@ const ProblemList = () => {
       } catch (err) {
         console.error('Error fetching problems or notes:', err);
 
-        // If the backend responds 401 or 403, we know our token is invalid or missing.
-        // Clear localStorage and send back to login.
+        // If backend returns 401/403, clear localStorage & redirect to /login
         if (err.response && (err.response.status === 401 || err.response.status === 403)) {
           localStorage.removeItem('jwt-token');
           localStorage.removeItem('user-id');
@@ -82,11 +89,11 @@ const ProblemList = () => {
     };
 
     fetchData();
-    // We only want this to run once, on mount. Do not re-run unless baseUrl/token/userId changes.
+    // We only want this to run once, on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl, token, userId]);
 
-  // Called whenever a ProblemRow toggles solved or starred
+  // Called whenever a ProblemRow toggles solved or starred:
   const handleToggle = (problemId, newIsSolved, newIsStarred) => {
     console.log('ProblemList.handleToggle:', problemId, newIsSolved, newIsStarred);
     setGroupedByTopic((prev) => {
@@ -102,7 +109,7 @@ const ProblemList = () => {
     });
   };
 
-  // Called whenever a ProblemRow’s note changes (onBlur)
+  // Called whenever a ProblemRow’s note changes (onBlur):
   const handleNoteChange = async (problemId, newNote) => {
     setSavingNotes((prev) => ({ ...prev, [problemId]: true }));
     setNotes((prev) => ({ ...prev, [problemId]: newNote }));
