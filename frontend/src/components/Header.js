@@ -5,83 +5,79 @@ import PropTypes from 'prop-types';
 
 const Header = ({ user, onLogout }) => {
   const navigate = useNavigate();
-  const location = useLocation(); // To prevent navigating to /login if already there
+  const location = useLocation();
 
-  // This state tracks the presence of a token to quickly update UI.
-  // The 'user' prop from App.js is the source of truth for displayed user details.
   const [hasToken, setHasToken] = useState(!!localStorage.getItem('jwt-token'));
 
   useEffect(() => {
-    // Sync hasToken with localStorage for cross-tab consistency or direct manipulation
     const syncTokenState = () => {
       setHasToken(!!localStorage.getItem('jwt-token'));
     };
     window.addEventListener('storage', syncTokenState);
-    syncTokenState(); // Initial check
+    syncTokenState();
     return () => window.removeEventListener('storage', syncTokenState);
   }, []);
 
-  // If the user prop changes (e.g., App.js sets it after login/logout),
-  // update hasToken to ensure consistency.
   useEffect(() => {
     setHasToken(!!user);
   }, [user]);
 
   const handleLoginClick = () => {
-    // Navigate to login only if not already on the login page
     if (location.pathname !== '/login') {
       navigate('/login');
     }
   };
 
   const handleLogoutClick = () => {
-    // Clear auth-related items from localStorage
     localStorage.removeItem('jwt-token');
     localStorage.removeItem('user-id');
-    localStorage.removeItem('user-email'); // Ensure email is also cleared
-
-    setHasToken(false); // Update local UI state immediately
-
+    localStorage.removeItem('user-email');
+    setHasToken(false);
     if (onLogout) {
-      onLogout(); // Trigger callback passed from App.js to update global state
+      onLogout();
     }
-    // App.js routing logic should handle redirecting to /login if necessary
-    // Forcing navigation here can sometimes conflict with App.js's own auth flow.
-    // However, if App.js doesn't redirect on user=null, explicit navigation is needed.
-    if (location.pathname !== '/login') { // Avoid redirect loop if already on login
-        navigate('/login', { replace: true });
+    if (location.pathname !== '/login') {
+      navigate('/login', { replace: true });
     }
   };
 
   return (
     <header
       style={{
+        // Key changes for new layout:
+        position: 'fixed', // Make header stick to the top
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1050, // Ensure header is above the sidebar
+        height: '65px', // Define a fixed height
+
+        // Existing styles
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '12px 25px', // Adjusted padding
-        borderBottom: '1px solid #e9ecef', // Lighter border
+        padding: '0 25px', // Use horizontal padding only
+        borderBottom: '1px solid #e9ecef',
         backgroundColor: '#ffffff',
-        position: 'sticky',
-        top: 0,
-        zIndex: 1050,
-        boxShadow: '0 2px 6px rgba(0,0,0,0.05)' // Softer shadow
+        boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
       }}
     >
       <div
         style={{
-          fontSize: '1.7rem', // Responsive font size
+          fontSize: '1.7rem',
           fontWeight: 'bold',
-          color: '#007bff',
+          color: '#1f2937', // CHANGED: from blue to a dark charcoal/gray-800
           cursor: 'pointer',
-          fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif" // Modern sans-serif
+          fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
         }}
-        onClick={() => navigate('/problems')} // Always navigate to problems dashboard
+        // In the new layout, clicking the logo should navigate to the base authenticated route
+        // which will display the default 'Problem Tracker' view.
+        onClick={() => navigate('/')}
       >
-        MakeCodingEasy
+        Coding Made Simple
       </div>
       <div>
-        {hasToken && user ? ( // Show user info and Logout if both token and user object exist
+        {hasToken && user ? (
           <>
             {user.email && (
               <span style={{
@@ -141,7 +137,7 @@ Header.propTypes = {
   user: PropTypes.shape({
     id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     email: PropTypes.string,
-  }), // User can be null
+  }),
   onLogout: PropTypes.func.isRequired,
 };
 
